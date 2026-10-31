@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Câu ôn tập - Trình Chiếu</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #222; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .slide-container { width: 95vw; height: 95vh; background: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; position: relative; padding: 20px; box-sizing: border-box; }
+        .slide-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 20px; flex-shrink: 0; }
+        .slide-header h2 { margin: 0; color: #0056b3; font-size: 2vw; }
+        
+        /* BẬT TÍNH NĂNG CUỘN CHO NỘI DUNG SLIDE */
+        .slide-content { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; overflow-y: auto; overflow-x: hidden; padding-right: 10px; padding-bottom: 60px; }
+        /* Trang trí thanh cuộn */
+        .slide-content::-webkit-scrollbar { width: 8px; }
+        .slide-content::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .slide-content::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        .question-box { font-size: 2.2vw; line-height: 1.5; transition: all 0.3s ease; }
+        .solution-box { display: none; font-size: 2vw; line-height: 1.4; margin-top: 15px; padding: 15px; background: #e2f3f5; border-left: 5px solid #17a2b8; border-radius: 5px; flex-shrink: 0; }
+        
+        /* Trắc nghiệm 1 lựa chọn */
+        .options { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+        .options div { flex: 1 1 45%; background: #f9f9f9; padding: 10px; border: 2px solid #ddd; border-radius: 5px; cursor: pointer; transition: 0.2s; box-sizing: border-box; }
+        .options div:hover:not(.disabled) { background: #e9e9e9; }
+        .options div.selected { border-color: #007bff; background: #e2eefb; }
+        .options div.correct { background: #d4edda !important; border-color: #28a745 !important; color: #155724; font-weight: bold; }
+        .options div.incorrect { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; }
+        .options div.disabled { cursor: not-allowed; opacity: 0.8; }
+        
+        /* Trắc nghiệm Đúng/Sai */
+        .tf-row { display: flex; align-items: center; justify-content: space-between; background: #f9f9f9; padding: 10px; margin-top: 10px; border: 2px solid #ddd; border-radius: 5px; }
+        .tf-row .content { flex-grow: 1; padding-right: 15px; font-size: 2vw; }
+        .tf-actions { display: flex; gap: 10px; }
+        .tf-btn { padding: 10px 20px; font-size: 1.8vw; font-weight: bold; border: 2px solid #ccc; border-radius: 5px; cursor: pointer; background: #fff; transition: 0.2s; user-select: none; }
+        .tf-btn.selected { border-color: #007bff; background: #e2eefb; color: #0056b3; }
+        .tf-btn.correct { background: #d4edda !important; border-color: #28a745 !important; color: #155724; }
+        .tf-btn.incorrect { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; }
+        
+        /* Trắc nghiệm Trả lời ngắn */
+        .short-ans-group-slide { display: flex; gap: 10px; margin-top: 15px; }
+        .short-ans-box-slide { width: 5vw; height: 6vw; font-size: 3vw; text-align: center; border: 2px solid #007bff; border-radius: 8px; font-weight: bold; color: #0056b3; box-sizing: border-box; }
+        .short-ans-box-slide.correct { background: #d4edda; border-color: #28a745; color: #155724; }
+        .short-ans-box-slide.incorrect { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .true-ans-text { display: none; color: #28a745; font-weight: bold; font-size: 2vw; margin-top: 15px; }
+        
+        /* CSS Nút điều khiển */
+        .controls { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; background: #fff; padding-left: 10px; box-shadow: -10px 0px 10px white; }
+        button { padding: 10px 20px; font-size: 1.5vw; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        .btn-nav { background: #007bff; color: white; }
+        .btn-nav:hover { background: #0056b3; }
+        .btn-nav:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-sol { background: #28a745; color: white; }
+        .btn-sol:hover { background: #218838; }
+        .btn-check { background: #ffc107; color: black; }
+        .btn-check:hover:not(:disabled) { background: #e0a800; }
+        .btn-check:disabled { background: #ccc; color: #666; cursor: not-allowed; }
+        
+        .scale-down .question-box { font-size: 1.8vw; }
+        .scale-down .options div, .scale-down .tf-row .content, .scale-down .tf-btn { font-size: 1.6vw; }
+        
+        mjx-container { max-width: 100%; }
+        svg { max-width: 100%; height: auto; }
+        .slide { display: none; height: 100%; flex-direction: column; }
+        .slide.active { display: flex; }
+        
+        /* --- CSS PHÓNG TO HÌNH ẢNH TRỰC TIẾP (INLINE) --- */
+        .slide-content img, .slide-content svg {
+            transition: width 0.3s ease, max-width 0.3s ease;
+        }
+        .zoomed-inline {
+            width: 90% !important;
+            max-width: 90% !important;
+            height: auto !important;
+            margin: 0 auto;
+            display: block;
+        }
+    </style>
+    <script>
+        window.MathJax = {
+          tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']], processEscapes: true },
+          options: { enableMenu: false }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.min.js"></script>
+</head>
+<body>
+    <div class="slide-container" id="mainContainer">
+        
+        <div class="slide" id="slide-0" data-checked="false" data-type="3" data-correctans="7">
+            <div class="slide-header">
+                <h2>Câu 1</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-check" onclick="checkAnswer(this, 'slide-0')">Kiểm tra</button>
+                    <button class="btn-sol" onclick="toggleSolution(this, 'slide-0')">Xem lời giải</button>
+                </div>
+            </div>
+            <div class="slide-content">
+                <div class="question-box">
+                    Trong năm đầu tiên đi làm, chị B được nhận lương là $15$ triệu đồng mỗi tháng. Cứ hết một năm, chị B lại được tăng lương, mỗi tháng năm sau tăng $10$\% so với mỗi tháng năm trước. Mỗi khi lĩnh lương chị B đều cất đi phần lương tăng so với năm đầu tiên để tiết kiệm mua ô tô. Hỏi sau ít nhất bao nhiêu năm thì chị B mua được chiếc xe ô tô giá $600$ triệu đồng biết rằng chị B được gia đình hỗ trợ $40$\% giá trị chiếc xe?
+                    
+            <div class="short-ans-group-slide">
+                <input type="text" class="short-ans-box-slide" maxlength="1" id="ans_slide-0_1" oninput="moveNextSlideAns(this, 2, 'slide-0')" onkeydown="movePrevSlideAns(event, this, null, 'slide-0')">
+                <input type="text" class="short-ans-box-slide" maxlength="1" id="ans_slide-0_2" oninput="moveNextSlideAns(this, 3, 'slide-0')" onkeydown="movePrevSlideAns(event, this, 1, 'slide-0')">
+                <input type="text" class="short-ans-box-slide" maxlength="1" id="ans_slide-0_3" oninput="moveNextSlideAns(this, 4, 'slide-0')" onkeydown="movePrevSlideAns(event, this, 2, 'slide-0')">
+                <input type="text" class="short-ans-box-slide" maxlength="1" id="ans_slide-0_4" oninput="moveNextSlideAns(this, 5, 'slide-0')" onkeydown="movePrevSlideAns(event, this, 3, 'slide-0')">
+            </div>
+            <div class="true-ans-text"></div>
+            
+                </div>
+                <div class="solution-box"><b>Lời giải chi tiết:</b><br>Số tiền chị B cần tự tiết kiệm là $600-600\cdot 0{,}40=360$ triệu đồng.
+		
+		Gọi $u_k$ là số tiền chị B nhận được ở mỗi tháng trong năm thứ $k$. Ta có
+		\begin{align*}
+			& u_1=15,\\
+			& u_2=u_1\cdot (1+0{,}10)=u_1\cdot 1{,}1,\\
+			& u_3=u_2\cdot (1+0{,}10)=u_1\cdot 1{,}1^2,\\
+			& \ldots\\
+			& u_k=u_1\cdot 1{,}1^{k-1}=15\cdot 1{,}1^{k-1}.
+		\end{align*}
+		
+		Phần tiền tiết kiệm mỗi tháng ở năm thứ $k$ là phần lương tăng so với năm đầu tiên, tức là $(u_k-u_1)$. Do đó số tiền tiết kiệm được trong năm thứ $k$ là
+		$$12(u_k-u_1)=12\cdot 15\left(1{,}1^{k-1}-1\right)=180\left(1{,}1^{k-1}-1\right).$$
+		
+		Vậy tổng số tiền chị B tiết kiệm được sau $n$ năm là
+		\begin{align*}
+			S_n&= 180\sum_{k=1}^{n}\left(1{,}1^{k-1}-1\right)\\
+			&= 180\left[\dfrac{1{,}1^{n}-1}{1{,}1-1}-n\right]\\
+			&= 180\left[10\left(1{,}1^{n}-1\right)-n\right].
+		\end{align*}
+		
+		Để mua được xe, ta cần có
+		$$S_n\ge 360\Leftrightarrow 10\left(1{,}1^{n}-1\right)-n\ge 2\Leftrightarrow 10\cdot 1{,}1^{n}-n\ge 12.$$
+		
+		Thử các giá trị của $n$:
+		<ul style="padding-left: 20px; margin: 10px 0;"><li>Với $n=6$: $S_6=180\left[10\left(1{,}1^{6}-1\right)-6\right]\approx 309<360$ (chưa đủ).
+			<li>Với $n=7$: $S_7=180\left[10\left(1{,}1^{7}-1\right)-7\right]\approx 448\ge 360$ (đủ).
+		</ul>Vì $S_n$ tăng theo $n$ nên chị B cần ít nhất $7$ năm để tiết kiệm đủ tiền mua ô tô.</div>
+            </div>
+        </div>
+        
+        
+        <div class="controls">
+            <button class="btn-nav" id="prevBtn" onclick="changeSlide(-1)">Quay lại</button>
+            <button class="btn-nav" id="nextBtn" onclick="changeSlide(1)">Tiếp theo</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.remove('active');
+                if (i === index) slide.classList.add('active');
+            });
+            document.getElementById('prevBtn').disabled = index === 0;
+            document.getElementById('nextBtn').disabled = index === slides.length - 1;
+            
+            // Tự động cuộn slide lên đầu mỗi khi chuyển trang
+            const activeContent = slides[index].querySelector('.slide-content');
+            if (activeContent) activeContent.scrollTop = 0;
+        }
+        
+        function changeSlide(step) {
+            currentSlide += step;
+            if (currentSlide < 0) currentSlide = 0;
+            if (currentSlide >= slides.length) currentSlide = slides.length - 1;
+            showSlide(currentSlide);
+        }
+        
+        function selectOption(element, slideId) {
+            const slide = document.getElementById(slideId);
+            if (slide.dataset.checked === "true") return; 
+            const options = slide.querySelectorAll('.options div');
+            options.forEach(opt => opt.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        function selectTF(btn, slideId, rowIndex, value) {
+            const slide = document.getElementById(slideId);
+            if (slide.dataset.checked === "true") return;
+            const row = slide.querySelectorAll('.tf-row')[rowIndex];
+            row.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            btn.dataset.val = value;
+        }
+
+        function moveNextSlideAns(current, nextIdx, slideId) {
+            current.value = current.value.replace('.', ',');
+            if (current.value.length > 1) current.value = current.value.slice(0, 1);
+            if (current.value.length === 1 && nextIdx <= 4) {
+                const nextInput = document.getElementById(`ans_${slideId}_${nextIdx}`);
+                if(nextInput) nextInput.focus();
+            }
+        }
+        function movePrevSlideAns(e, current, prevIdx, slideId) {
+            if (e.key === "Backspace" && current.value === "" && prevIdx >= 1) {
+                const prevInput = document.getElementById(`ans_${slideId}_${prevIdx}`);
+                if(prevInput) prevInput.focus();
+            }
+        }
+
+        function checkAnswer(btn, slideId) {
+            const slide = document.getElementById(slideId);
+            if (slide.dataset.checked === "true") return; 
+            const type = slide.dataset.type;
+
+            if (type === "1") { 
+                const selected = slide.querySelector('.options div.selected');
+                if (!selected) { alert("Vui lòng chọn một phương án!"); return; }
+                const isCorrect = selected.getAttribute('data-correct') === 'true';
+                if (isCorrect) selected.classList.add('correct');
+                else {
+                    selected.classList.add('incorrect');
+                    const correctOption = slide.querySelector('.options div[data-correct="true"]');
+                    if (correctOption) correctOption.classList.add('correct');
+                }
+                slide.querySelectorAll('.options div').forEach(opt => opt.classList.add('disabled'));
+            } 
+            else if (type === "2") { 
+                const rows = slide.querySelectorAll('.tf-row');
+                let allSelected = true;
+                rows.forEach(row => { if (!row.querySelector('.tf-btn.selected')) allSelected = false; });
+                if (!allSelected) { alert("Vui lòng chọn Đúng hoặc Sai cho tất cả các ý!"); return; }
+
+                rows.forEach(row => {
+                    const selectedBtn = row.querySelector('.tf-btn.selected');
+                    const correctVal = row.dataset.correct;
+                    if (selectedBtn.dataset.val === correctVal) {
+                        selectedBtn.classList.add('correct');
+                    } else {
+                        selectedBtn.classList.add('incorrect');
+                        row.querySelectorAll('.tf-btn').forEach(b => {
+                            if (b.innerText === correctVal) b.classList.add('correct');
+                        });
+                    }
+                    row.querySelectorAll('.tf-btn').forEach(b => {
+                        b.style.pointerEvents = 'none';
+                        if(!b.classList.contains('selected') && !b.classList.contains('correct')) b.style.opacity = '0.5';
+                    });
+                });
+            } 
+            else if (type === "3") { 
+                const inputs = slide.querySelectorAll('.short-ans-box-slide');
+                let userAns = "";
+                inputs.forEach(inp => userAns += inp.value);
+                if (userAns.trim() === "") { alert("Vui lòng nhập đáp án!"); return; }
+
+                const correctAns = slide.dataset.correctans;
+                let studentAnsClean = userAns.replace(/,/g, '.').replace(/\s+/g, '');
+                let trueAnsClean = correctAns.replace(/,/g, '.').replace(/\s+/g, '');
+
+                const isCorrect = (studentAnsClean === trueAnsClean);
+                inputs.forEach(inp => {
+                    inp.readOnly = true;
+                    if (isCorrect) inp.classList.add('correct');
+                    else inp.classList.add('incorrect');
+                });
+                
+                const trueAnsDiv = slide.querySelector('.true-ans-text');
+                trueAnsDiv.innerHTML = "Đáp án đúng: " + correctAns;
+                trueAnsDiv.style.display = 'block';
+            }
+
+            slide.dataset.checked = "true";
+            btn.disabled = true;
+        }
+        
+        function toggleSolution(btn, slideId) {
+            const slide = document.getElementById(slideId);
+            const solBox = slide.querySelector('.solution-box');
+            const contentDiv = slide.querySelector('.slide-content');
+            
+            if (!solBox) { alert("Câu hỏi này chưa có lời giải!"); return; }
+            
+            if (solBox.style.display === 'none' || solBox.style.display === '') {
+                solBox.style.display = 'block';
+                btn.innerHTML = "Ẩn lời giải";
+                btn.style.background = "#dc3545";
+                contentDiv.classList.add('scale-down'); 
+            } else {
+                solBox.style.display = 'none';
+                btn.innerHTML = "Xem lời giải";
+                btn.style.background = "#28a745";
+                contentDiv.classList.remove('scale-down');
+            }
+        }
+
+        // --- HÀM XỬ LÝ PHÓNG TO HÌNH ẢNH TRỰC TIẾP ---
+        function setupImageZoom() {
+            const mediaElements = document.querySelectorAll('.slide-content img, .slide-content .table-responsive svg');
+            
+            mediaElements.forEach(el => {
+                // Tạo nút phóng to
+                const zoomBtn = document.createElement('button');
+                zoomBtn.innerHTML = '🔍 Phóng to';
+                zoomBtn.style.cssText = 'display: table; margin: 5px auto 15px auto; padding: 5px 15px; font-size: 1.2vw; background: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.3s;';
+                
+                zoomBtn.onclick = function(e) {
+                    e.preventDefault();
+                    if (el.classList.contains('zoomed-inline')) {
+                        // Thu nhỏ lại
+                        el.classList.remove('zoomed-inline');
+                        zoomBtn.innerHTML = '🔍 Phóng to';
+                        zoomBtn.style.background = '#17a2b8';
+                    } else {
+                        // Phóng to ra
+                        el.classList.add('zoomed-inline');
+                        zoomBtn.innerHTML = '➖ Thu nhỏ';
+                        zoomBtn.style.background = '#6c757d';
+                    }
+                };
+                
+                // Chèn nút ngay dưới hình ảnh/biểu đồ
+                el.parentNode.insertBefore(zoomBtn, el.nextSibling);
+            });
+        }
+
+        // Khởi tạo trang
+        if(slides.length > 0) {
+            showSlide(0);
+            setupImageZoom(); // Gọi hàm cài đặt nút phóng to
+        }
+        
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowRight' || event.key === 'PageDown') changeSlide(1);
+            if (event.key === 'ArrowLeft' || event.key === 'PageUp') changeSlide(-1);
+        });
+    </script>
+</body>
+</html>
